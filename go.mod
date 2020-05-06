@@ -14,11 +14,9 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/guregu/null v4.0.0+incompatible
 	github.com/sirupsen/logrus v1.6.0
-	github.com/smartystreets/goconvey v1.6.4
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.3
 	github.com/ttacon/builder v0.0.0-20170518171403-c099f663e1c2 // indirect
 	github.com/ttacon/libphonenumber v1.1.0
-	golang.org/x/crypto v0.0.0-20190325154230-a5d413f7728c
 	google.golang.org/grpc v1.29.1
 )

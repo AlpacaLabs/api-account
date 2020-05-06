@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"database/sql"
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -30,9 +29,6 @@ type Transaction interface {
 	GetConfirmedEmailAddress(ctx context.Context) (*authV1.EmailAddress, error)
 	GetPhoneNumberByPhoneNumber(ctx context.Context, phoneNumber string) (*authV1.PhoneNumber, error)
 	GetPhoneNumbersForAccount(ctx context.Context, accountID string) ([]*authV1.PhoneNumber, error)
-	GetPasswordForAccountID(ctx context.Context, id string) (*entities.Password, error)
-	CreatePassword(ctx context.Context, p entities.Password) error
-	UpdatePassword(ctx context.Context, p entities.Password) error
 }
 
 type txImpl struct {
@@ -332,52 +328,6 @@ func (tx *txImpl) GetPhoneNumbersForAccount(ctx context.Context, accountID strin
 	}
 
 	return phoneNumbers, nil
-}
-
-func (tx *txImpl) GetPasswordForAccountID(ctx context.Context, id string) (*entities.Password, error) {
-	var q sqlexp.Querier
-	q = tx.tx
-
-	var p entities.Password
-	row := q.QueryRowContext(
-		ctx,
-		"SELECT p.id, p.created_timestamp, p.iteration_count, p.salt, "+
-			"p.password_hash, p.account_id "+
-			"FROM Password p "+
-			"WHERE p.id=$1", id)
-	err := row.Scan(&p.Id, &p.Created, &p.IterationCount, &p.Salt, &p.PasswordHash, &p.AccountID)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &p, nil
-}
-
-func (tx *txImpl) CreatePassword(ctx context.Context, p entities.Password) error {
-	var q sqlexp.Querier
-	q = tx.tx
-
-	_, err := q.ExecContext(
-		ctx,
-		"INSERT INTO Password(id, created_timestamp, iteration_count, salt, password_hash, account_id) VALUES($1, $2, $3, $4, $5, $6)",
-		p.Id, p.Created, p.IterationCount, p.Salt, p.PasswordHash, p.AccountID)
-
-	return err
-}
-
-func (tx *txImpl) UpdatePassword(ctx context.Context, p entities.Password) error {
-	var q sqlexp.Querier
-	q = tx.tx
-
-	_, err := q.ExecContext(
-		ctx,
-		"UPDATE Password SET iteration_count=$1, salt=decode($2, 'hex'), password_hash=decode($3, 'hex') WHERE id=$4",
-		p.IterationCount,
-		hex.EncodeToString(p.Salt),
-		hex.EncodeToString(p.PasswordHash),
-		p.Id)
-	return err
 }
 
 func sortKeyword(sort paginationV1.Sort) string {
