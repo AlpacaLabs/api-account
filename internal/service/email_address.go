@@ -3,8 +3,9 @@ package service
 import (
 	"context"
 
+	accountV1 "github.com/AlpacaLabs/protorepo-account-go/alpacalabs/account/v1"
+
 	"github.com/AlpacaLabs/api-account/internal/db"
-	authV1 "github.com/AlpacaLabs/protorepo-auth-go/alpacalabs/auth/v1"
 	paginationV1 "github.com/AlpacaLabs/protorepo-pagination-go/alpacalabs/pagination/v1"
 )
 
@@ -16,8 +17,8 @@ const (
 // GetEmailAddresses retrieves all email addresses in the system.
 // Ideally, this function should be locked down and offered for
 // admins only.
-func (s *Service) GetEmailAddresses(ctx context.Context, request authV1.GetEmailAddressesRequest) (*authV1.GetEmailAddressesResponse, error) {
-	out := &authV1.GetEmailAddressesResponse{}
+func (s *Service) GetEmailAddresses(ctx context.Context, request accountV1.GetEmailAddressesRequest) (*accountV1.GetEmailAddressesResponse, error) {
+	out := &accountV1.GetEmailAddressesResponse{}
 
 	err := s.dbClient.RunInTransaction(ctx, func(ctx context.Context, tx db.Transaction) error {
 		cursorRequest := *request.CursorRequest

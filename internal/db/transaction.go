@@ -6,43 +6,48 @@ import (
 	"strings"
 	"time"
 
+	accountV1 "github.com/AlpacaLabs/protorepo-account-go/alpacalabs/account/v1"
+
 	"github.com/jackc/pgx/v4"
 
 	"github.com/AlpacaLabs/api-account/internal/db/entities"
 	paginationV1 "github.com/AlpacaLabs/protorepo-pagination-go/alpacalabs/pagination/v1"
-
-	authV1 "github.com/AlpacaLabs/protorepo-auth-go/alpacalabs/auth/v1"
 )
 
 type Transaction interface {
-	GetEmailAddressByEmailAddress(ctx context.Context, emailAddress string) (*authV1.EmailAddress, error)
-	GetEmailAddressByID(ctx context.Context, id string) (*authV1.EmailAddress, error)
-	GetDeletedEmailAddressByID(ctx context.Context) (*authV1.EmailAddress, error)
+	GetEmailAddressByEmailAddress(ctx context.Context, emailAddress string) (*accountV1.EmailAddress, error)
+
+	GetEmailAddressByID(ctx context.Context, id string) (*accountV1.EmailAddress, error)
+	GetPhoneNumberByID(ctx context.Context, id string) (*accountV1.PhoneNumber, error)
+
+	GetDeletedEmailAddressByID(ctx context.Context) (*accountV1.EmailAddress, error)
 	UpdateEmailAddress(ctx context.Context) error
 	DeleteEmailAddress(ctx context.Context, id string) error
 	CreateEmailAddress(ctx context.Context, e entities.EmailAddress) error
-	GetEmailAddresses(ctx context.Context, request paginationV1.CursorRequest) ([]*authV1.EmailAddress, error)
-	GetEmailAddressesForAccount(ctx context.Context, accountID string, cursorRequest paginationV1.CursorRequest) ([]*authV1.EmailAddress, error)
+	GetEmailAddresses(ctx context.Context, request paginationV1.CursorRequest) ([]*accountV1.EmailAddress, error)
+
+	GetEmailAddressesForAccount(ctx context.Context, accountID string, cursorRequest paginationV1.CursorRequest) ([]*accountV1.EmailAddress, error)
+	GetPhoneNumbersForAccount(ctx context.Context, accountID string, cursorRequest paginationV1.CursorRequest) ([]*accountV1.PhoneNumber, error)
+
 	EmailIsConfirmed(ctx context.Context, emailAddress string) (bool, error)
 	EmailExists(ctx context.Context, emailAddress string) (bool, error)
 	CountEmail(ctx context.Context, emailAddress string) (int, error)
-	GetConfirmedEmailAddress(ctx context.Context) (*authV1.EmailAddress, error)
-	GetPhoneNumberByPhoneNumber(ctx context.Context, phoneNumber string) (*authV1.PhoneNumber, error)
-	GetPhoneNumbersForAccount(ctx context.Context, accountID string) ([]*authV1.PhoneNumber, error)
+	GetConfirmedEmailAddress(ctx context.Context) (*accountV1.EmailAddress, error)
+	GetPhoneNumberByPhoneNumber(ctx context.Context, phoneNumber string) (*accountV1.PhoneNumber, error)
 }
 
 type txImpl struct {
 	tx pgx.Tx
 }
 
-func (tx *txImpl) GetEmailAddressByEmailAddress(ctx context.Context, emailAddress string) (*authV1.EmailAddress, error) {
+func (tx *txImpl) GetEmailAddressByEmailAddress(ctx context.Context, emailAddress string) (*accountV1.EmailAddress, error) {
 	var e entities.EmailAddress
 
 	row := tx.tx.QueryRow(
 		ctx,
-		"SELECT id, created_timestamp, deleted_timestamp, last_modified_timestamp, confirmed, is_primary, email_address, account_id "+
+		"SELECT id, created_at, deleted_at, last_modified_at, confirmed, is_primary, email_address, account_id "+
 			"FROM email_address WHERE email_address=$1 "+
-			"AND deleted_timestamp IS NULL", emailAddress)
+			"AND deleted_at IS NULL", emailAddress)
 	err := row.Scan(&e.ID, &e.Created, &e.Deleted, &e.LastModified, &e.Confirmed, &e.Primary, &e.EmailAddress, &e.AccountID)
 
 	if err != nil {
@@ -52,14 +57,14 @@ func (tx *txImpl) GetEmailAddressByEmailAddress(ctx context.Context, emailAddres
 	return e.ToProtobuf(), nil
 }
 
-func (tx *txImpl) GetEmailAddressByID(ctx context.Context, id string) (*authV1.EmailAddress, error) {
+func (tx *txImpl) GetEmailAddressByID(ctx context.Context, id string) (*accountV1.EmailAddress, error) {
 	var e entities.EmailAddress
 
 	row := tx.tx.QueryRow(
 		ctx,
-		"SELECT id, created_timestamp, deleted_timestamp, last_modified_timestamp, confirmed, is_primary, email_address, account_id "+
-			"FROM email_address WHERE id=$1 "+
-			"AND deleted_timestamp IS NULL", id)
+		"SELECT id, created_at, deleted_at, last_modified_at, confirmed, is_primary, email_address, account_id "+
+			"FROM phone_number WHERE id=$1 "+
+			"AND deleted_at IS NULL", id)
 	err := row.Scan(&e.ID, &e.Created, &e.Deleted, &e.LastModified, &e.Confirmed, &e.Primary, &e.EmailAddress, &e.AccountID)
 
 	if err != nil {
@@ -69,14 +74,31 @@ func (tx *txImpl) GetEmailAddressByID(ctx context.Context, id string) (*authV1.E
 	return e.ToProtobuf(), nil
 }
 
-func (tx *txImpl) GetDeletedEmailAddressByID(ctx context.Context) (*authV1.EmailAddress, error) {
+func (tx *txImpl) GetPhoneNumberByID(ctx context.Context, id string) (*accountV1.PhoneNumber, error) {
+	var p entities.PhoneNumber
+
+	row := tx.tx.QueryRow(
+		ctx,
+		"SELECT id, created_at, deleted_at, last_modified_at, confirmed, phone_number, account_id "+
+			"FROM email_address WHERE id=$1 "+
+			"AND deleted_at IS NULL", id)
+	err := row.Scan(&p.ID, &p.Created, &p.Deleted, &p.LastModified, &p.Confirmed, &p.PhoneNumber, &p.AccountID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return p.ToProtobuf(), nil
+}
+
+func (tx *txImpl) GetDeletedEmailAddressByID(ctx context.Context) (*accountV1.EmailAddress, error) {
 	var e entities.EmailAddress
 
 	row := tx.tx.QueryRow(
 		ctx,
-		"SELECT id, created_timestamp, deleted_timestamp, last_modified_timestamp, confirmed, email_address, account_id "+
+		"SELECT id, created_at, deleted_at, last_modified_at, confirmed, email_address, account_id "+
 			"FROM email_address WHERE id=$1 "+
-			"AND deleted_timestamp IS NOT NULL", e.ID)
+			"AND deleted_at IS NOT NULL", e.ID)
 
 	err := row.Scan(&e.ID, &e.Created, &e.Deleted, &e.LastModified, &e.Confirmed, &e.EmailAddress, &e.AccountID)
 
@@ -94,7 +116,7 @@ func (tx *txImpl) UpdateEmailAddress(ctx context.Context) error {
 
 	_, err := tx.tx.Exec(
 		ctx,
-		"UPDATE email_address SET last_modified_timestamp=$1, confirmed=$2 WHERE id=$3",
+		"UPDATE email_address SET last_modified_at=$1, confirmed=$2 WHERE id=$3",
 		time.Now(), e.Confirmed, e.ID)
 
 	return err
@@ -115,7 +137,7 @@ func (tx *txImpl) CreateEmailAddress(ctx context.Context, e entities.EmailAddres
 	return err
 }
 
-func (tx *txImpl) GetEmailAddresses(ctx context.Context, request paginationV1.CursorRequest) ([]*authV1.EmailAddress, error) {
+func (tx *txImpl) GetEmailAddresses(ctx context.Context, request paginationV1.CursorRequest) ([]*accountV1.EmailAddress, error) {
 	var sortString string
 	if len(request.SortClauses) == 0 {
 		sortString = "id ASC"
@@ -126,10 +148,10 @@ func (tx *txImpl) GetEmailAddresses(ctx context.Context, request paginationV1.Cu
 	rows, err := tx.tx.Query(
 		ctx,
 		fmt.Sprintf(
-			"SELECT id, created_timestamp, deleted_timestamp, last_modified_timestamp, confirmed, email_address, account_id "+
+			"SELECT id, created_at, deleted_at, last_modified_at, confirmed, email_address, account_id "+
 				"FROM email_address "+
 				"WHERE id > $1 "+
-				"AND deleted_timestamp IS NULL "+
+				"AND deleted_at IS NULL "+
 				"ORDER BY %s "+
 				"FETCH FIRST %d ROWS ONLY", sortString, request.Count), request.Cursor)
 
@@ -139,7 +161,7 @@ func (tx *txImpl) GetEmailAddresses(ctx context.Context, request paginationV1.Cu
 
 	defer rows.Close()
 
-	emailAddresses := []*authV1.EmailAddress{}
+	emailAddresses := []*accountV1.EmailAddress{}
 
 	for rows.Next() {
 		var e entities.EmailAddress
@@ -152,7 +174,7 @@ func (tx *txImpl) GetEmailAddresses(ctx context.Context, request paginationV1.Cu
 	return emailAddresses, nil
 }
 
-func (tx *txImpl) GetEmailAddressesForAccount(ctx context.Context, accountID string, cursorRequest paginationV1.CursorRequest) ([]*authV1.EmailAddress, error) {
+func (tx *txImpl) GetEmailAddressesForAccount(ctx context.Context, accountID string, cursorRequest paginationV1.CursorRequest) ([]*accountV1.EmailAddress, error) {
 	var sortString string
 	if len(cursorRequest.SortClauses) == 0 {
 		sortString = "id ASC"
@@ -163,15 +185,16 @@ func (tx *txImpl) GetEmailAddressesForAccount(ctx context.Context, accountID str
 	queryTemplate := `
 SELECT id, email_address, account_id 
  FROM email_address 
- WHERE confirmed=$1 
- AND account_id=$2 
- AND deleted_timestamp IS NULL
+ WHERE confirmed=TRUE 
+ AND account_id=$1 
+ AND deleted_at IS NULL 
+ AND id > $2
  ORDER BY %s 
  FETCH FIRST %d ROWS ONLY
 `
 
 	query := fmt.Sprintf(queryTemplate, sortString, cursorRequest.Count)
-	rows, err := tx.tx.Query(ctx, query, true, accountID)
+	rows, err := tx.tx.Query(ctx, query, accountID, cursorRequest.Cursor)
 
 	if err != nil {
 		return nil, err
@@ -179,10 +202,10 @@ SELECT id, email_address, account_id
 
 	defer rows.Close()
 
-	emailAddresses := []*authV1.EmailAddress{}
+	emailAddresses := []*accountV1.EmailAddress{}
 
 	for rows.Next() {
-		var e authV1.EmailAddress
+		var e accountV1.EmailAddress
 		if err := rows.Scan(&e.Id, &e.EmailAddress, &e.AccountId); err != nil {
 			return nil, err
 		}
@@ -194,6 +217,47 @@ SELECT id, email_address, account_id
 	return emailAddresses, nil
 }
 
+func (tx *txImpl) GetPhoneNumbersForAccount(ctx context.Context, accountID string, cursorRequest paginationV1.CursorRequest) ([]*accountV1.PhoneNumber, error) {
+	var sortString string
+	if len(cursorRequest.SortClauses) == 0 {
+		sortString = "id ASC"
+	} else {
+		sortString = buildOrderByClause(cursorRequest)
+	}
+
+	queryTemplate := `
+SELECT id, phone_number, account_id 
+ FROM phone_number 
+ WHERE confirmed=TRUE 
+ AND account_id=$1 
+ AND deleted_at IS NULL 
+ AND id > $2
+ ORDER BY %s 
+ FETCH FIRST %d ROWS ONLY
+`
+	query := fmt.Sprintf(queryTemplate, sortString, cursorRequest.Count)
+	rows, err := tx.tx.Query(ctx, query, accountID, cursorRequest.Cursor)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	phoneNumbers := []*accountV1.PhoneNumber{}
+
+	for rows.Next() {
+		var p accountV1.PhoneNumber
+		if err := rows.Scan(&p.Id, &p.PhoneNumber, &p.AccountId); err != nil {
+			return nil, err
+		}
+		p.PhoneNumber = maskPhoneNumber(p.PhoneNumber)
+		phoneNumbers = append(phoneNumbers, &p)
+	}
+
+	return phoneNumbers, nil
+}
+
 func (tx *txImpl) EmailIsConfirmed(ctx context.Context, emailAddress string) (bool, error) {
 	var count int
 	row := tx.tx.QueryRow(
@@ -202,7 +266,7 @@ func (tx *txImpl) EmailIsConfirmed(ctx context.Context, emailAddress string) (bo
 			"FROM email_address "+
 			"WHERE email_address = $1 "+
 			"AND confirmed = $2 "+
-			"AND deleted_timestamp IS NULL", emailAddress, true)
+			"AND deleted_at IS NULL", emailAddress, true)
 	err := row.Scan(&count)
 	if err != nil {
 		return false, err
@@ -222,12 +286,12 @@ func (tx *txImpl) CountEmail(ctx context.Context, emailAddress string) (int, err
 	var count int
 	row := tx.tx.QueryRow(
 		ctx,
-		"SELECT COUNT(*) AS count FROM email_address WHERE email_address=$1 AND deleted_timestamp IS NULL", emailAddress)
+		"SELECT COUNT(*) AS count FROM email_address WHERE email_address=$1 AND deleted_at IS NULL", emailAddress)
 	err := row.Scan(&count)
 	return count, err
 }
 
-func (tx *txImpl) GetConfirmedEmailAddress(ctx context.Context) (*authV1.EmailAddress, error) {
+func (tx *txImpl) GetConfirmedEmailAddress(ctx context.Context) (*accountV1.EmailAddress, error) {
 	var e entities.EmailAddress
 
 	row := tx.tx.QueryRow(
@@ -235,7 +299,7 @@ func (tx *txImpl) GetConfirmedEmailAddress(ctx context.Context) (*authV1.EmailAd
 		"SELECT id, email_address, account_id "+
 			"FROM email_address WHERE email_address=$1 "+
 			"AND confirmed=$2 "+
-			"AND deleted_timestamp IS NULL", e.EmailAddress, true)
+			"AND deleted_at IS NULL", e.EmailAddress, true)
 
 	err := row.Scan(&e.ID, &e.EmailAddress, &e.AccountID)
 
@@ -246,49 +310,20 @@ func (tx *txImpl) GetConfirmedEmailAddress(ctx context.Context) (*authV1.EmailAd
 	return e.ToProtobuf(), nil
 }
 
-func (tx *txImpl) GetPhoneNumberByPhoneNumber(ctx context.Context, phoneNumber string) (*authV1.PhoneNumber, error) {
-	var p authV1.PhoneNumber
+func (tx *txImpl) GetPhoneNumberByPhoneNumber(ctx context.Context, phoneNumber string) (*accountV1.PhoneNumber, error) {
+	var p accountV1.PhoneNumber
 
 	err := tx.tx.QueryRow(
 		ctx,
 		"SELECT phone_number, account_id "+
 			"FROM phone_number WHERE phone_number=$1 "+
-			"AND deleted_timestamp IS NULL", phoneNumber).Scan(&p.PhoneNumber, &p.AccountId)
+			"AND deleted_at IS NULL", phoneNumber).Scan(&p.PhoneNumber, &p.AccountId)
 
 	if err != nil {
 		return nil, err
 	}
 
 	return &p, nil
-}
-
-func (tx *txImpl) GetPhoneNumbersForAccount(ctx context.Context, accountID string) ([]*authV1.PhoneNumber, error) {
-	rows, err := tx.tx.Query(
-		ctx,
-		"SELECT id, phone_number, account_id "+
-			"FROM phone_number "+
-			"WHERE confirmed=$1 AND account_id=$2 "+
-			"AND deleted_timestamp IS NULL",
-		true, accountID)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer rows.Close()
-
-	phoneNumbers := []*authV1.PhoneNumber{}
-
-	for rows.Next() {
-		var p authV1.PhoneNumber
-		if err := rows.Scan(&p.Id, &p.PhoneNumber, &p.AccountId); err != nil {
-			return nil, err
-		}
-		p.PhoneNumber = maskPhoneNumber(p.PhoneNumber)
-		phoneNumbers = append(phoneNumbers, &p)
-	}
-
-	return phoneNumbers, nil
 }
 
 func sortKeyword(sort paginationV1.Sort) string {

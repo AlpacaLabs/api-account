@@ -6,6 +6,7 @@ import (
 
 	"github.com/AlpacaLabs/api-account/internal/configuration"
 	"github.com/AlpacaLabs/api-account/internal/service"
+	accountV1 "github.com/AlpacaLabs/protorepo-account-go/alpacalabs/account/v1"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -36,7 +37,7 @@ func (s Server) Run() {
 	log.Println("Starting gRPC server...")
 	grpcServer := grpc.NewServer()
 
-	// TODO Register our services
+	accountV1.RegisterAccountServiceServer(grpcServer, s)
 
 	// Register reflection service on gRPC server.
 	reflection.Register(grpcServer)
