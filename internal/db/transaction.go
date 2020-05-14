@@ -2,16 +2,16 @@ package db
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v4"
 
 	"github.com/AlpacaLabs/api-account/internal/db/entities"
 	paginationV1 "github.com/AlpacaLabs/protorepo-pagination-go/alpacalabs/pagination/v1"
 
 	authV1 "github.com/AlpacaLabs/protorepo-auth-go/alpacalabs/auth/v1"
-	"github.com/golang-sql/sqlexp"
 )
 
 type Transaction interface {
@@ -32,16 +32,13 @@ type Transaction interface {
 }
 
 type txImpl struct {
-	tx *sql.Tx
+	tx pgx.Tx
 }
 
 func (tx *txImpl) GetEmailAddressByEmailAddress(ctx context.Context, emailAddress string) (*authV1.EmailAddress, error) {
-	var q sqlexp.Querier
-	q = tx.tx
-
 	var e entities.EmailAddress
 
-	row := q.QueryRowContext(
+	row := tx.tx.QueryRow(
 		ctx,
 		"SELECT id, created_timestamp, deleted_timestamp, last_modified_timestamp, confirmed, is_primary, email_address, account_id "+
 			"FROM email_address WHERE email_address=$1 "+
@@ -56,12 +53,9 @@ func (tx *txImpl) GetEmailAddressByEmailAddress(ctx context.Context, emailAddres
 }
 
 func (tx *txImpl) GetEmailAddressByID(ctx context.Context, id string) (*authV1.EmailAddress, error) {
-	var q sqlexp.Querier
-	q = tx.tx
-
 	var e entities.EmailAddress
 
-	row := q.QueryRowContext(
+	row := tx.tx.QueryRow(
 		ctx,
 		"SELECT id, created_timestamp, deleted_timestamp, last_modified_timestamp, confirmed, is_primary, email_address, account_id "+
 			"FROM email_address WHERE id=$1 "+
@@ -76,12 +70,9 @@ func (tx *txImpl) GetEmailAddressByID(ctx context.Context, id string) (*authV1.E
 }
 
 func (tx *txImpl) GetDeletedEmailAddressByID(ctx context.Context) (*authV1.EmailAddress, error) {
-	var q sqlexp.Querier
-	q = tx.tx
-
 	var e entities.EmailAddress
 
-	row := q.QueryRowContext(
+	row := tx.tx.QueryRow(
 		ctx,
 		"SELECT id, created_timestamp, deleted_timestamp, last_modified_timestamp, confirmed, email_address, account_id "+
 			"FROM email_address WHERE id=$1 "+
@@ -99,12 +90,9 @@ func (tx *txImpl) GetDeletedEmailAddressByID(ctx context.Context) (*authV1.Email
 // UpdateEmailAddress updates only the confirmation status of an email address.
 // TODO rename func
 func (tx *txImpl) UpdateEmailAddress(ctx context.Context) error {
-	var q sqlexp.Querier
-	q = tx.tx
-
 	var e entities.EmailAddress
 
-	_, err := q.ExecContext(
+	_, err := tx.tx.Exec(
 		ctx,
 		"UPDATE email_address SET last_modified_timestamp=$1, confirmed=$2 WHERE id=$3",
 		time.Now(), e.Confirmed, e.ID)
@@ -113,19 +101,13 @@ func (tx *txImpl) UpdateEmailAddress(ctx context.Context) error {
 }
 
 func (tx *txImpl) DeleteEmailAddress(ctx context.Context, id string) error {
-	var q sqlexp.Querier
-	q = tx.tx
-
-	_, err := q.ExecContext(ctx, "DELETE FROM email_address WHERE id=$1", id)
+	_, err := tx.tx.Exec(ctx, "DELETE FROM email_address WHERE id=$1", id)
 
 	return err
 }
 
 func (tx *txImpl) CreateEmailAddress(ctx context.Context, e entities.EmailAddress) error {
-	var q sqlexp.Querier
-	q = tx.tx
-
-	_, err := q.ExecContext(
+	_, err := tx.tx.Exec(
 		ctx,
 		"INSERT INTO email_address(id, account_id, email_address, confirmed, is_primary) VALUES($1, $2, $3, $4, $5)",
 		e.ID, e.AccountID, e.EmailAddress, e.Confirmed, e.Primary)
@@ -134,9 +116,6 @@ func (tx *txImpl) CreateEmailAddress(ctx context.Context, e entities.EmailAddres
 }
 
 func (tx *txImpl) GetEmailAddresses(ctx context.Context, request paginationV1.CursorRequest) ([]*authV1.EmailAddress, error) {
-	var q sqlexp.Querier
-	q = tx.tx
-
 	var sortString string
 	if len(request.SortClauses) == 0 {
 		sortString = "id ASC"
@@ -144,7 +123,7 @@ func (tx *txImpl) GetEmailAddresses(ctx context.Context, request paginationV1.Cu
 		sortString = buildOrderByClause(request)
 	}
 
-	rows, err := q.QueryContext(
+	rows, err := tx.tx.Query(
 		ctx,
 		fmt.Sprintf(
 			"SELECT id, created_timestamp, deleted_timestamp, last_modified_timestamp, confirmed, email_address, account_id "+
@@ -174,9 +153,6 @@ func (tx *txImpl) GetEmailAddresses(ctx context.Context, request paginationV1.Cu
 }
 
 func (tx *txImpl) GetEmailAddressesForAccount(ctx context.Context, accountID string, cursorRequest paginationV1.CursorRequest) ([]*authV1.EmailAddress, error) {
-	var q sqlexp.Querier
-	q = tx.tx
-
 	var sortString string
 	if len(cursorRequest.SortClauses) == 0 {
 		sortString = "id ASC"
@@ -195,7 +171,7 @@ SELECT id, email_address, account_id
 `
 
 	query := fmt.Sprintf(queryTemplate, sortString, cursorRequest.Count)
-	rows, err := q.QueryContext(ctx, query, true, accountID)
+	rows, err := tx.tx.Query(ctx, query, true, accountID)
 
 	if err != nil {
 		return nil, err
@@ -219,11 +195,8 @@ SELECT id, email_address, account_id
 }
 
 func (tx *txImpl) EmailIsConfirmed(ctx context.Context, emailAddress string) (bool, error) {
-	var q sqlexp.Querier
-	q = tx.tx
-
 	var count int
-	row := q.QueryRowContext(
+	row := tx.tx.QueryRow(
 		ctx,
 		"SELECT COUNT(*) AS count "+
 			"FROM email_address "+
@@ -246,11 +219,8 @@ func (tx *txImpl) EmailExists(ctx context.Context, emailAddress string) (bool, e
 }
 
 func (tx *txImpl) CountEmail(ctx context.Context, emailAddress string) (int, error) {
-	var q sqlexp.Querier
-	q = tx.tx
-
 	var count int
-	row := q.QueryRowContext(
+	row := tx.tx.QueryRow(
 		ctx,
 		"SELECT COUNT(*) AS count FROM email_address WHERE email_address=$1 AND deleted_timestamp IS NULL", emailAddress)
 	err := row.Scan(&count)
@@ -258,12 +228,9 @@ func (tx *txImpl) CountEmail(ctx context.Context, emailAddress string) (int, err
 }
 
 func (tx *txImpl) GetConfirmedEmailAddress(ctx context.Context) (*authV1.EmailAddress, error) {
-	var q sqlexp.Querier
-	q = tx.tx
-
 	var e entities.EmailAddress
 
-	row := q.QueryRowContext(
+	row := tx.tx.QueryRow(
 		ctx,
 		"SELECT id, email_address, account_id "+
 			"FROM email_address WHERE email_address=$1 "+
@@ -280,12 +247,9 @@ func (tx *txImpl) GetConfirmedEmailAddress(ctx context.Context) (*authV1.EmailAd
 }
 
 func (tx *txImpl) GetPhoneNumberByPhoneNumber(ctx context.Context, phoneNumber string) (*authV1.PhoneNumber, error) {
-	var q sqlexp.Querier
-	q = tx.tx
-
 	var p authV1.PhoneNumber
 
-	err := q.QueryRowContext(
+	err := tx.tx.QueryRow(
 		ctx,
 		"SELECT phone_number, account_id "+
 			"FROM phone_number WHERE phone_number=$1 "+
@@ -299,10 +263,7 @@ func (tx *txImpl) GetPhoneNumberByPhoneNumber(ctx context.Context, phoneNumber s
 }
 
 func (tx *txImpl) GetPhoneNumbersForAccount(ctx context.Context, accountID string) ([]*authV1.PhoneNumber, error) {
-	var q sqlexp.Querier
-	q = tx.tx
-
-	rows, err := q.QueryContext(
+	rows, err := tx.tx.Query(
 		ctx,
 		"SELECT id, phone_number, account_id "+
 			"FROM phone_number "+
