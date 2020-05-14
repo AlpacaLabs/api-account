@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"fmt"
+	health "google.golang.org/grpc/health/grpc_health_v1"
 	"net"
 
 	"github.com/AlpacaLabs/api-account/internal/configuration"
@@ -37,6 +38,7 @@ func (s Server) Run() {
 	log.Println("Starting gRPC server...")
 	grpcServer := grpc.NewServer()
 
+	health.RegisterHealthServer(grpcServer, s)
 	accountV1.RegisterAccountServiceServer(grpcServer, s)
 
 	// Register reflection service on gRPC server.
