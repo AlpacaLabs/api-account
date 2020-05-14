@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/AlpacaLabs/go-config v0.0.0-20200513234945-e6f2b4c2c8d6
 	github.com/AlpacaLabs/go-timestamp v0.0.0-20200502002453-181df3ead2e7
+	github.com/AlpacaLabs/go-timestamp-sql v0.0.0-20200506000030-73a801105204
 	github.com/AlpacaLabs/protorepo-account-go v0.0.0-20200514015349-1c5d3d601656
 	github.com/AlpacaLabs/protorepo-pagination-go v0.0.0-20200503181518-cbf4b2f30657
 	github.com/badoux/checkmail v0.0.0-20181210160741-9661bd69e9ad

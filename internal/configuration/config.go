@@ -2,7 +2,6 @@ package configuration
 
 import (
 	"encoding/json"
-	"fmt"
 
 	configuration "github.com/AlpacaLabs/go-config"
 	"github.com/rs/xid"
@@ -14,9 +13,8 @@ import (
 )
 
 const (
-	flagForGrpcPort       = "grpc_port"
-	flagForGrpcPortHealth = "grpc_port_health"
-	flagForHTTPPort       = "http_port"
+	flagForGrpcPort = "grpc_port"
+	flagForHTTPPort = "http_port"
 )
 
 type Config struct {
@@ -34,9 +32,6 @@ type Config struct {
 
 	// HTTPPort controls what port our HTTP server runs on.
 	HTTPPort int
-
-	// HealthPort controls what port our gRPC health endpoints run on.
-	HealthPort int
 }
 
 func (c Config) String() string {
@@ -49,43 +44,27 @@ func (c Config) String() string {
 
 func LoadConfig() Config {
 	c := Config{
-		AppName:    "api-account",
-		AppID:      xid.New().String(),
-		GrpcPort:   8081,
-		HealthPort: 8082,
-		HTTPPort:   8083,
+		AppName:  "api-account",
+		AppID:    xid.New().String(),
+		GrpcPort: 8081,
+		HTTPPort: 8083,
 	}
 
 	c.KafkaConfig = configuration.LoadKafkaConfig()
 	c.SQLConfig = configuration.LoadSQLConfig()
 
 	flag.Int(flagForGrpcPort, c.GrpcPort, "gRPC port")
-	flag.Int(flagForGrpcPortHealth, c.HealthPort, "gRPC health port")
 	flag.Int(flagForHTTPPort, c.HTTPPort, "gRPC HTTP port")
 
 	flag.Parse()
 
 	viper.BindPFlag(flagForGrpcPort, flag.Lookup(flagForGrpcPort))
-	viper.BindPFlag(flagForGrpcPortHealth, flag.Lookup(flagForGrpcPortHealth))
 	viper.BindPFlag(flagForHTTPPort, flag.Lookup(flagForHTTPPort))
 
 	viper.AutomaticEnv()
 
 	c.GrpcPort = viper.GetInt(flagForGrpcPort)
-	c.HealthPort = viper.GetInt(flagForGrpcPortHealth)
 	c.HTTPPort = viper.GetInt(flagForHTTPPort)
 
 	return c
-}
-
-func getGrpcAddress(addrFlag, hostFlag, portFlag string) string {
-	addr := viper.GetString(addrFlag)
-	host := viper.GetString(hostFlag)
-	port := viper.GetInt(portFlag)
-
-	if port != 0 {
-		return fmt.Sprintf("%s:%d", host, port)
-	}
-
-	return addr
 }

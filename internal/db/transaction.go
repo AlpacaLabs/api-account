@@ -6,6 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	accountV1 "github.com/AlpacaLabs/protorepo-account-go/alpacalabs/account/v1"
 
 	"github.com/jackc/pgx/v4"
@@ -14,7 +17,13 @@ import (
 	paginationV1 "github.com/AlpacaLabs/protorepo-pagination-go/alpacalabs/pagination/v1"
 )
 
+var (
+	ErrNotFound = status.Error(codes.NotFound, "entity not found")
+)
+
 type Transaction interface {
+	GetAccountByID(ctx context.Context, accountID string) (*entities.Account, error)
+
 	GetEmailAddressByEmailAddress(ctx context.Context, emailAddress string) (*accountV1.EmailAddress, error)
 
 	GetEmailAddressByID(ctx context.Context, id string) (*accountV1.EmailAddress, error)
@@ -40,17 +49,46 @@ type txImpl struct {
 	tx pgx.Tx
 }
 
+func (tx *txImpl) GetAccountByID(ctx context.Context, accountID string) (*entities.Account, error) {
+	var e entities.Account
+
+	query := `
+SELECT id, created_at, deleted_at, last_modified_at, username, current_password_id, primary_email_address_id 
+ FROM account
+ WHERE id=$1 
+ AND deleted_at IS NULL
+`
+
+	row := tx.tx.QueryRow(ctx, query, accountID)
+	err := row.Scan(&e.ID, &e.CreatedAt, &e.DeletedAt, &e.LastModifiedAt, &e.Username, &e.CurrentPasswordID, &e.PrimaryEmailAddressID)
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	return &e, nil
+}
+
 func (tx *txImpl) GetEmailAddressByEmailAddress(ctx context.Context, emailAddress string) (*accountV1.EmailAddress, error) {
 	var e entities.EmailAddress
 
-	row := tx.tx.QueryRow(
-		ctx,
-		"SELECT id, created_at, deleted_at, last_modified_at, confirmed, is_primary, email_address, account_id "+
-			"FROM email_address WHERE email_address=$1 "+
-			"AND deleted_at IS NULL", emailAddress)
-	err := row.Scan(&e.ID, &e.Created, &e.Deleted, &e.LastModified, &e.Confirmed, &e.Primary, &e.EmailAddress, &e.AccountID)
+	query := `
+SELECT id, created_at, deleted_at, last_modified_at, confirmed, is_primary, email_address, account_id 
+ FROM email_address
+ WHERE email_address=$1 
+ AND deleted_at IS NULL
+`
+
+	row := tx.tx.QueryRow(ctx, query, emailAddress)
+	err := row.Scan(&e.ID, &e.CreatedAt, &e.DeletedAt, &e.LastModifiedAt, &e.Confirmed, &e.Primary, &e.EmailAddress, &e.AccountID)
 
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 
@@ -65,9 +103,12 @@ func (tx *txImpl) GetEmailAddressByID(ctx context.Context, id string) (*accountV
 		"SELECT id, created_at, deleted_at, last_modified_at, confirmed, is_primary, email_address, account_id "+
 			"FROM phone_number WHERE id=$1 "+
 			"AND deleted_at IS NULL", id)
-	err := row.Scan(&e.ID, &e.Created, &e.Deleted, &e.LastModified, &e.Confirmed, &e.Primary, &e.EmailAddress, &e.AccountID)
+	err := row.Scan(&e.ID, &e.CreatedAt, &e.DeletedAt, &e.LastModifiedAt, &e.Confirmed, &e.Primary, &e.EmailAddress, &e.AccountID)
 
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 
@@ -82,9 +123,12 @@ func (tx *txImpl) GetPhoneNumberByID(ctx context.Context, id string) (*accountV1
 		"SELECT id, created_at, deleted_at, last_modified_at, confirmed, phone_number, account_id "+
 			"FROM email_address WHERE id=$1 "+
 			"AND deleted_at IS NULL", id)
-	err := row.Scan(&p.ID, &p.Created, &p.Deleted, &p.LastModified, &p.Confirmed, &p.PhoneNumber, &p.AccountID)
+	err := row.Scan(&p.ID, &p.CreatedAt, &p.DeletedAt, &p.LastModifiedAt, &p.Confirmed, &p.PhoneNumber, &p.AccountID)
 
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 
@@ -100,9 +144,12 @@ func (tx *txImpl) GetDeletedEmailAddressByID(ctx context.Context) (*accountV1.Em
 			"FROM email_address WHERE id=$1 "+
 			"AND deleted_at IS NOT NULL", e.ID)
 
-	err := row.Scan(&e.ID, &e.Created, &e.Deleted, &e.LastModified, &e.Confirmed, &e.EmailAddress, &e.AccountID)
+	err := row.Scan(&e.ID, &e.CreatedAt, &e.DeletedAt, &e.LastModifiedAt, &e.Confirmed, &e.EmailAddress, &e.AccountID)
 
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 
@@ -165,7 +212,7 @@ func (tx *txImpl) GetEmailAddresses(ctx context.Context, request paginationV1.Cu
 
 	for rows.Next() {
 		var e entities.EmailAddress
-		if err := rows.Scan(&e.ID, &e.Created, &e.Deleted, &e.LastModified, &e.Confirmed, &e.EmailAddress, &e.AccountID); err != nil {
+		if err := rows.Scan(&e.ID, &e.CreatedAt, &e.DeletedAt, &e.LastModifiedAt, &e.Confirmed, &e.EmailAddress, &e.AccountID); err != nil {
 			return nil, err
 		}
 		emailAddresses = append(emailAddresses, e.ToProtobuf())
@@ -268,7 +315,9 @@ func (tx *txImpl) EmailIsConfirmed(ctx context.Context, emailAddress string) (bo
 			"AND confirmed = $2 "+
 			"AND deleted_at IS NULL", emailAddress, true)
 	err := row.Scan(&count)
+
 	if err != nil {
+		// TODO check for NotFound?
 		return false, err
 	}
 	return count == 1, nil
@@ -277,6 +326,9 @@ func (tx *txImpl) EmailIsConfirmed(ctx context.Context, emailAddress string) (bo
 func (tx *txImpl) EmailExists(ctx context.Context, emailAddress string) (bool, error) {
 	count, err := tx.CountEmail(ctx, emailAddress)
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return false, nil
+		}
 		return false, err
 	}
 	return count == 1, nil
@@ -304,6 +356,9 @@ func (tx *txImpl) GetConfirmedEmailAddress(ctx context.Context) (*accountV1.Emai
 	err := row.Scan(&e.ID, &e.EmailAddress, &e.AccountID)
 
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 
@@ -320,6 +375,9 @@ func (tx *txImpl) GetPhoneNumberByPhoneNumber(ctx context.Context, phoneNumber s
 			"AND deleted_at IS NULL", phoneNumber).Scan(&p.PhoneNumber, &p.AccountId)
 
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 

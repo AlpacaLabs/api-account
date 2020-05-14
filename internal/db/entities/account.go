@@ -10,84 +10,79 @@ import (
 )
 
 type Account struct {
-	ID                    string      `json:"id"`
-	Created               null.Time   `json:"created_at"`
-	Deleted               null.Time   `json:"deleted_at"`
-	LastModified          null.Time   `json:"last_modified_at"`
-	Disabled              bool        `json:"disabled"`
-	MultiFactorRequired   bool        `json:"multi_factor_required"`
-	Username              null.String `json:"username"`
-	CurrentPasswordID     null.String `json:"current_password_id"`
-	PrimaryEmailAddressID null.String `json:"primary_email_address_id"`
+	ID                    string
+	CreatedAt             time.Time
+	LastModifiedAt        time.Time
+	DeletedAt             null.Time
+	Username              null.String
+	CurrentPasswordID     null.String
+	PrimaryEmailAddressID null.String
 }
 
 func (p *Account) GetAccountByUsername(q sqlexp.Querier) error {
 	return q.QueryRowContext(
 		context.TODO(),
-		"SELECT p.id, p.created_timestamp, p.deleted_timestamp, p.last_modified_timestamp, p.disabled, "+
-			"p.multi_factor_required, p.username, p.current_password_id, p.primary_email_address_id "+
+		"SELECT p.id, p.created_timestamp, p.deleted_timestamp, p.last_modified_timestamp, "+
+			"p.username, p.current_password_id, p.primary_email_address_id "+
 			"FROM Account p "+
 			"WHERE p.username=$1 "+
-			"AND p.deleted_timestamp IS NULL", p.Username).Scan(&p.ID, &p.Created, &p.Deleted, &p.LastModified, &p.Disabled,
-		&p.MultiFactorRequired, &p.Username, &p.CurrentPasswordID, &p.PrimaryEmailAddressID)
+			"AND p.deleted_timestamp IS NULL", p.Username).Scan(&p.ID, &p.CreatedAt, &p.DeletedAt, &p.LastModifiedAt,
+		&p.Username, &p.CurrentPasswordID, &p.PrimaryEmailAddressID)
 }
 
 func GetAccountByEmailAddress(q sqlexp.Querier, emailAddress string) (*Account, error) {
 	p := &Account{}
 	return p, q.QueryRowContext(
 		context.TODO(),
-		"SELECT p.id, p.created_timestamp, p.deleted_timestamp, p.last_modified_timestamp, p.disabled, "+
-			"p.multi_factor_required, p.username, p.current_password_id, p.primary_email_address_id "+
+		"SELECT p.id, p.created_timestamp, p.deleted_timestamp, p.last_modified_timestamp, "+
+			"p.username, p.current_password_id, p.primary_email_address_id "+
 			"FROM email_address e JOIN Account p ON e.accountId = p.id "+
 			"WHERE e.email_address=$1 "+
-			"AND p.deleted_timestamp IS NULL", emailAddress).Scan(&p.ID, &p.Created, &p.Deleted, &p.LastModified,
-		&p.Disabled, &p.MultiFactorRequired, &p.Username, &p.CurrentPasswordID,
-		&p.PrimaryEmailAddressID)
+			"AND p.deleted_timestamp IS NULL", emailAddress).Scan(&p.ID, &p.CreatedAt, &p.DeletedAt, &p.LastModifiedAt,
+		&p.Username, &p.CurrentPasswordID, &p.PrimaryEmailAddressID)
 }
 
 func GetAccountByPhoneNumber(q sqlexp.Querier, phoneNumber string) (*Account, error) {
 	p := &Account{}
 	return p, q.QueryRowContext(
 		context.TODO(),
-		"SELECT p.id, p.created_timestamp, p.deleted_timestamp, p.last_modified_timestamp, p.disabled, "+
-			"p.multi_factor_required, p.username, p.current_password_id, p.primary_email_address_id "+
+		"SELECT p.id, p.created_timestamp, p.deleted_timestamp, p.last_modified_timestamp, "+
+			"p.username, p.current_password_id, p.primary_email_address_id "+
 			"FROM phone_number pn JOIN Account p ON pn.accountId = p.id "+
 			"WHERE pn.phone_number=$1 "+
-			"AND p.deleted_timestamp IS NULL", phoneNumber).Scan(&p.ID, &p.Created, &p.Deleted, &p.LastModified,
-		&p.Disabled, &p.MultiFactorRequired, &p.Username, &p.CurrentPasswordID,
-		&p.PrimaryEmailAddressID)
+			"AND p.deleted_timestamp IS NULL", phoneNumber).Scan(&p.ID, &p.CreatedAt, &p.DeletedAt, &p.LastModifiedAt,
+		&p.Username, &p.CurrentPasswordID, &p.PrimaryEmailAddressID)
 }
 
 func (p *Account) GetDeletedAccount(q sqlexp.Querier) error {
 	return q.QueryRowContext(
 		context.TODO(),
-		"SELECT p.id, p.created_timestamp, p.deleted_timestamp, p.last_modified_timestamp, p.disabled, "+
-			"p.multi_factor_required, p.username, p.current_password_id, p.primary_email_address_id "+
+		"SELECT p.id, p.created_timestamp, p.deleted_timestamp, p.last_modified_timestamp, "+
+			"p.username, p.current_password_id, p.primary_email_address_id "+
 			"FROM Account p "+
 			"WHERE p.id=$1 "+
-			"AND p.deleted_timestamp IS NOT NULL", p.ID).Scan(&p.ID, &p.Created, &p.Deleted, &p.LastModified,
-		&p.Disabled, &p.MultiFactorRequired, &p.Username, &p.CurrentPasswordID,
-		&p.PrimaryEmailAddressID)
+			"AND p.deleted_timestamp IS NOT NULL", p.ID).Scan(&p.ID, &p.CreatedAt, &p.DeletedAt, &p.LastModifiedAt,
+		&p.Username, &p.CurrentPasswordID, &p.PrimaryEmailAddressID)
 }
 
 func (p *Account) GetAccount(q sqlexp.Querier) error {
 	return q.QueryRowContext(
 		context.TODO(),
-		"SELECT p.id, p.created_timestamp, p.deleted_timestamp, p.last_modified_timestamp, p.disabled, "+
-			"p.multi_factor_required, p.username, p.current_password_id, p.primary_email_address_id "+
+		"SELECT p.id, p.created_timestamp, p.deleted_timestamp, p.last_modified_timestamp, "+
+			"p.username, p.current_password_id, p.primary_email_address_id "+
 			"FROM Account p "+
 			"WHERE p.id=$1 "+
-			"AND p.deleted_timestamp IS NULL", p.ID).Scan(&p.ID, &p.Created, &p.Deleted, &p.LastModified, &p.Disabled,
-		&p.MultiFactorRequired, &p.Username, &p.CurrentPasswordID, &p.PrimaryEmailAddressID)
+			"AND p.deleted_timestamp IS NULL", p.ID).Scan(&p.ID, &p.CreatedAt, &p.DeletedAt, &p.LastModifiedAt,
+		&p.Username, &p.CurrentPasswordID, &p.PrimaryEmailAddressID)
 }
 
 func (p *Account) UpdateAccount(q sqlexp.Querier) error {
 	_, err := q.ExecContext(
 		context.TODO(),
 		"UPDATE Account "+
-			"SET last_modified_timestamp=$1, username=$2, primary_email_address_id=$3, multi_factor_required=$4 "+
-			"WHERE id=$5",
-		time.Now(), p.Username, p.PrimaryEmailAddressID, p.MultiFactorRequired, p.ID)
+			"SET last_modified_timestamp=$1, username=$2, primary_email_address_id=$3 "+
+			"WHERE id=$4",
+		time.Now(), p.Username, p.PrimaryEmailAddressID, p.ID)
 	return err
 }
 
@@ -102,8 +97,8 @@ func (p *Account) DeleteAccount(q sqlexp.Querier) error {
 func (p *Account) CreateAccount(q sqlexp.Querier) error {
 	_, err := q.ExecContext(
 		context.TODO(),
-		"INSERT INTO Account(id, created_timestamp, username, disabled) VALUES($1, $2, $3, $4)",
-		p.ID, time.Now(), p.Username, p.Disabled)
+		"INSERT INTO Account(id, created_timestamp, username) VALUES($1, $2, $3)",
+		p.ID, time.Now(), p.Username)
 
 	if err != nil {
 		return err
@@ -116,8 +111,8 @@ func GetAccounts(q sqlexp.Querier, cursor string, sort string, count int) ([]Acc
 	rows, err := q.QueryContext(
 		context.TODO(),
 		fmt.Sprintf(
-			"SELECT p.id, p.created_timestamp, p.deleted_timestamp, p.last_modified_timestamp, p.disabled, "+
-				"p.multi_factor_required, p.username, p.current_password_id, p.primary_email_address_id "+
+			"SELECT p.id, p.created_timestamp, p.deleted_timestamp, p.last_modified_timestamp, "+
+				"p.username, p.current_password_id, p.primary_email_address_id "+
 				"FROM Account p "+
 				"WHERE p.id > $1 "+
 				"ORDER BY p.id %s "+
@@ -133,7 +128,7 @@ func GetAccounts(q sqlexp.Querier, cursor string, sort string, count int) ([]Acc
 
 	for rows.Next() {
 		var p Account
-		if err := rows.Scan(&p.ID, &p.Created, &p.Deleted, &p.LastModified, &p.Disabled, &p.MultiFactorRequired,
+		if err := rows.Scan(&p.ID, &p.CreatedAt, &p.DeletedAt, &p.LastModifiedAt,
 			&p.Username, &p.CurrentPasswordID, &p.PrimaryEmailAddressID); err != nil {
 			return nil, err
 		}

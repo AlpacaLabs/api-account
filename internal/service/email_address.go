@@ -2,11 +2,20 @@ package service
 
 import (
 	"context"
+	"errors"
+	"fmt"
+
+	"github.com/AlpacaLabs/api-account/internal/db/entities"
+	"github.com/badoux/checkmail"
 
 	accountV1 "github.com/AlpacaLabs/protorepo-account-go/alpacalabs/account/v1"
 
 	"github.com/AlpacaLabs/api-account/internal/db"
 	paginationV1 "github.com/AlpacaLabs/protorepo-pagination-go/alpacalabs/pagination/v1"
+)
+
+var (
+	ErrEmailAlreadyRegisteredByDifferentAccount = errors.New("that email address is already by a different account")
 )
 
 const (
@@ -60,9 +69,77 @@ func (s *Service) GetEmailAddress(ctx context.Context) {
 
 // CreateEmailAddress creates an email address entity for a
 // given email address and account ID.
-func (s *Service) CreateEmailAddress(ctx context.Context) {
-	// Validate input. Validate email with checkmail library.
-	// Check if email already exists. if yes, resend confirmation email. if no, return error.
+func (s *Service) AddEmailAddress(ctx context.Context, request *accountV1.AddEmailAddressRequest) (*accountV1.AddEmailAddressResponse, error) {
+	emailAddress := request.EmailAddress
+	accountID := request.AccountId
+
+	// Validate email address format
+	if err := checkmail.ValidateFormat(emailAddress); err != nil {
+		return nil, err
+	}
+
+	out := &accountV1.AddEmailAddressResponse{}
+
+	err := s.dbClient.RunInTransaction(ctx, func(ctx context.Context, tx db.Transaction) error {
+
+		// Does the account already exist?
+		// TODO ideally this should come from request context rather than a protobuf field.
+		//  clients shouldn't be allowed to register email addresses for other users.
+		if _, err := tx.GetAccountByID(ctx, accountID); err != nil {
+			return fmt.Errorf("no account found for id: %s", accountID)
+		}
+
+		// Is the email already registered?
+		email, err := tx.GetEmailAddressByEmailAddress(ctx, emailAddress)
+
+		// Check for internal errors
+		if err != nil && err != db.ErrNotFound {
+			return err
+		}
+
+		// If the email isn't found, then no one has registered it.
+		if err == db.ErrNotFound || email == nil {
+
+			// Get their email addresses to determine if the one they want to register
+			// should be automatically set to primary
+			var isFirstEmailRegistered bool
+			if emailAddresses, err := tx.GetEmailAddressesForAccount(ctx, accountID, paginationV1.CursorRequest{
+				// A user can't have more than 20 email addresses, right??
+				Count: 20,
+			}); err != nil {
+				if err == db.ErrNotFound {
+					isFirstEmailRegistered = true
+				} else {
+					return err
+				}
+			} else if len(emailAddresses) == 0 {
+				isFirstEmailRegistered = true
+			}
+
+			// Create an email address record
+			if err := tx.CreateEmailAddress(ctx, entities.NewEmailAddress(entities.NewEmailAddressInput{
+				Primary:      isFirstEmailRegistered,
+				EmailAddress: emailAddress,
+				AccountID:    accountID,
+			})); err != nil {
+				return err
+			}
+		} else {
+			if email.AccountId != accountID {
+				return ErrEmailAlreadyRegisteredByDifferentAccount
+			} else {
+				// TODO add transactional outbox record to resend confirmation email
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
 }
 
 // UpdateEmailAddress updates the email address's confirmation status.

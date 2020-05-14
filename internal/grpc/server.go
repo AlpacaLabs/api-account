@@ -2,8 +2,9 @@ package grpc
 
 import (
 	"fmt"
-	health "google.golang.org/grpc/health/grpc_health_v1"
 	"net"
+
+	health "google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/AlpacaLabs/api-account/internal/configuration"
 	"github.com/AlpacaLabs/api-account/internal/service"
