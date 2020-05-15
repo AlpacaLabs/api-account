@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/AlpacaLabs/go-config v0.0.0-20200513234945-e6f2b4c2c8d6
+	github.com/AlpacaLabs/go-kafka v0.0.0-20200513011912-5ecc9cc5b6ba
 	github.com/AlpacaLabs/go-timestamp v0.0.0-20200502002453-181df3ead2e7
 	github.com/AlpacaLabs/go-timestamp-sql v0.0.0-20200506000030-73a801105204
 	github.com/AlpacaLabs/protorepo-account-go v0.0.0-20200515160225-7d122739336d
