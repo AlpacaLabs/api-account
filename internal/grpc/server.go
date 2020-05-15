@@ -29,14 +29,13 @@ func NewServer(config configuration.Config, service service.Service) Server {
 func (s Server) Run() {
 	address := fmt.Sprintf(":%d", s.config.GrpcPort)
 
-	log.Printf("Listening on %s\n", address)
+	log.Infof("Preparing to serve gRPC on %s", address)
 
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
-	log.Println("Starting gRPC server...")
 	grpcServer := grpc.NewServer()
 
 	health.RegisterHealthServer(grpcServer, s)
@@ -45,7 +44,7 @@ func (s Server) Run() {
 	// Register reflection service on gRPC server.
 	reflection.Register(grpcServer)
 
-	log.Info("Registered gRPC services...")
+	log.Infof("Serving gRPC on %s", address)
 
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
