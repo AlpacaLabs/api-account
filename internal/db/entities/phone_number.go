@@ -3,6 +3,8 @@ package entities
 import (
 	"time"
 
+	"github.com/rs/xid"
+
 	clock "github.com/AlpacaLabs/go-timestamp"
 	accountV1 "github.com/AlpacaLabs/protorepo-account-go/alpacalabs/account/v1"
 	"github.com/guregu/null"
@@ -17,6 +19,23 @@ type PhoneNumber struct {
 	Confirmed      bool
 	PhoneNumber    string
 	AccountID      string
+}
+
+type NewPhoneNumberInput struct {
+	PhoneNumber string
+	AccountID   string
+}
+
+func NewPhoneNumber(in NewPhoneNumberInput) PhoneNumber {
+	now := time.Now()
+	return PhoneNumber{
+		ID:             xid.New().String(),
+		CreatedAt:      now,
+		LastModifiedAt: now,
+		DeletedAt:      null.TimeFromPtr(nil),
+		PhoneNumber:    in.PhoneNumber,
+		AccountID:      in.AccountID,
+	}
 }
 
 func (e PhoneNumber) ToProtobuf() *accountV1.PhoneNumber {

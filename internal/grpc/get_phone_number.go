@@ -8,6 +8,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (s Server) AddPhoneNumber(ctx context.Context, request *accountV1.AddPhoneNumberRequest) (*accountV1.AddPhoneNumberResponse, error) {
+func (s Server) GetPhoneNumber(ctx context.Context, request *accountV1.GetPhoneNumberRequest) (*accountV1.GetPhoneNumberResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "Unimplemented")
 }

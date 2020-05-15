@@ -14,7 +14,7 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
-func (s *Service) Authenticate() {
+func (s Service) Authenticate() {
 	// Validate email w/ checkmail
 	// Retrieve account entity by username, email, or phone number
 	// Call matchesHash function

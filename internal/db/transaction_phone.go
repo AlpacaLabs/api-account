@@ -11,6 +11,10 @@ import (
 )
 
 type PhoneTransaction interface {
+	CreatePhoneNumber(ctx context.Context, e entities.PhoneNumber) error
+	DeletePhoneNumber(ctx context.Context, id string) (int, error)
+	ConfirmPhoneNumber(ctx context.Context, id string) error
+
 	GetPhoneNumberByID(ctx context.Context, id string) (*accountV1.PhoneNumber, error)
 	GetPhoneNumbersForAccount(ctx context.Context, accountID string, cursorRequest paginationV1.CursorRequest) ([]*accountV1.PhoneNumber, error)
 	GetPhoneNumberByPhoneNumber(ctx context.Context, phoneNumber string) (*accountV1.PhoneNumber, error)
@@ -18,6 +22,31 @@ type PhoneTransaction interface {
 
 type phoneTxImpl struct {
 	tx pgx.Tx
+}
+
+func (tx *phoneTxImpl) CreatePhoneNumber(ctx context.Context, e entities.PhoneNumber) error {
+	query := `
+INSERT INTO phone_number
+ (id, account_id, phone_number, confirmed)
+ VALUES($1, $2, $3, $4)
+`
+	_, err := tx.tx.Exec(ctx, query, e.ID, e.AccountID, e.PhoneNumber, e.Confirmed)
+
+	return err
+}
+
+func (tx *phoneTxImpl) DeletePhoneNumber(ctx context.Context, id string) (int, error) {
+	res, err := tx.tx.Exec(ctx, "DELETE FROM phone_number WHERE id=$1", id)
+	if err != nil {
+		return 0, err
+	}
+
+	return int(res.RowsAffected()), nil
+}
+
+func (tx *phoneTxImpl) ConfirmPhoneNumber(ctx context.Context, id string) error {
+	_, err := tx.tx.Exec(ctx, "UPDATE phone_number SET confirmed = TRUE WHERE id=$1", id)
+	return err
 }
 
 func (tx *phoneTxImpl) GetPhoneNumberByID(ctx context.Context, id string) (*accountV1.PhoneNumber, error) {

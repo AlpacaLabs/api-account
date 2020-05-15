@@ -3,6 +3,8 @@ package entities
 import (
 	"time"
 
+	"github.com/rs/xid"
+
 	clock "github.com/AlpacaLabs/go-timestamp"
 	clocksql "github.com/AlpacaLabs/go-timestamp-sql"
 	accountV1 "github.com/AlpacaLabs/protorepo-account-go/alpacalabs/account/v1"
@@ -30,7 +32,7 @@ type NewEmailAddressInput struct {
 func NewEmailAddress(in NewEmailAddressInput) EmailAddress {
 	now := time.Now()
 	return EmailAddress{
-		ID:             "",
+		ID:             xid.New().String(),
 		CreatedAt:      now,
 		LastModifiedAt: now,
 		DeletedAt:      null.TimeFromPtr(nil),

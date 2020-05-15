@@ -13,7 +13,8 @@ import (
 
 type EmailTransaction interface {
 	CreateEmailAddress(ctx context.Context, e entities.EmailAddress) error
-	DeleteEmailAddress(ctx context.Context, id string) error
+	DeleteEmailAddress(ctx context.Context, id string) (int, error)
+	ConfirmEmailAddress(ctx context.Context, id string) error
 
 	GetEmailAddressByEmailAddress(ctx context.Context, emailAddress string) (*accountV1.EmailAddress, error)
 	GetEmailAddressByID(ctx context.Context, id string) (*accountV1.EmailAddress, error)
@@ -43,9 +44,17 @@ INSERT INTO email_address
 	return err
 }
 
-func (tx *emailTxImpl) DeleteEmailAddress(ctx context.Context, id string) error {
-	_, err := tx.tx.Exec(ctx, "DELETE FROM email_address WHERE id=$1", id)
+func (tx *emailTxImpl) DeleteEmailAddress(ctx context.Context, id string) (int, error) {
+	res, err := tx.tx.Exec(ctx, "DELETE FROM email_address WHERE id=$1", id)
+	if err != nil {
+		return 0, err
+	}
 
+	return int(res.RowsAffected()), nil
+}
+
+func (tx *emailTxImpl) ConfirmEmailAddress(ctx context.Context, id string) error {
+	_, err := tx.tx.Exec(ctx, "UPDATE email_address SET confirmed = TRUE WHERE id=$1", id)
 	return err
 }
 
