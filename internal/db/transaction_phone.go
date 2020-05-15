@@ -15,6 +15,8 @@ type PhoneTransaction interface {
 	DeletePhoneNumber(ctx context.Context, id string) (int, error)
 	ConfirmPhoneNumber(ctx context.Context, id string) error
 
+	GetPhoneNumbers(ctx context.Context, request paginationV1.CursorRequest) ([]*accountV1.PhoneNumber, error)
+
 	GetPhoneNumberByID(ctx context.Context, id string) (*accountV1.PhoneNumber, error)
 	GetPhoneNumbersForAccount(ctx context.Context, accountID string, cursorRequest paginationV1.CursorRequest) ([]*accountV1.PhoneNumber, error)
 	GetPhoneNumberByPhoneNumber(ctx context.Context, phoneNumber string) (*accountV1.PhoneNumber, error)
@@ -47,6 +49,46 @@ func (tx *phoneTxImpl) DeletePhoneNumber(ctx context.Context, id string) (int, e
 func (tx *phoneTxImpl) ConfirmPhoneNumber(ctx context.Context, id string) error {
 	_, err := tx.tx.Exec(ctx, "UPDATE phone_number SET confirmed = TRUE WHERE id=$1", id)
 	return err
+}
+
+func (tx *phoneTxImpl) GetPhoneNumbers(ctx context.Context, request paginationV1.CursorRequest) ([]*accountV1.PhoneNumber, error) {
+	var sortString string
+	if len(request.SortClauses) == 0 {
+		sortString = "id ASC"
+	} else {
+		sortString = buildOrderByClause(request)
+	}
+
+	queryTemplate := `
+SELECT id, created_at, last_modified_at, deleted_at, confirmed, phone_number, account_id 
+ FROM phone_number
+ WHERE id > $1
+ AND deleted_at IS NULL
+ ORDER BY %s
+ FETCH FIRST %d ROWS ONLY
+`
+
+	query := fmt.Sprintf(queryTemplate, sortString, request.Count)
+
+	rows, err := tx.tx.Query(ctx, query, request.Cursor)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	phoneNumbers := []*accountV1.PhoneNumber{}
+
+	for rows.Next() {
+		var e entities.PhoneNumber
+		if err := rows.Scan(&e.ID, &e.CreatedAt, &e.LastModifiedAt, &e.DeletedAt, &e.Confirmed, &e.PhoneNumber, &e.AccountID); err != nil {
+			return nil, err
+		}
+		phoneNumbers = append(phoneNumbers, e.ToProtobuf())
+	}
+
+	return phoneNumbers, nil
 }
 
 func (tx *phoneTxImpl) GetPhoneNumberByID(ctx context.Context, id string) (*accountV1.PhoneNumber, error) {
