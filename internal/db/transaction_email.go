@@ -33,10 +33,12 @@ type emailTxImpl struct {
 }
 
 func (tx *emailTxImpl) CreateEmailAddress(ctx context.Context, e entities.EmailAddress) error {
-	_, err := tx.tx.Exec(
-		ctx,
-		"INSERT INTO email_address(id, account_id, email_address, confirmed, is_primary) VALUES($1, $2, $3, $4, $5)",
-		e.ID, e.AccountID, e.EmailAddress, e.Confirmed, e.Primary)
+	query := `
+INSERT INTO email_address
+ (id, account_id, email_address, confirmed, is_primary)
+ VALUES($1, $2, $3, $4, $5)
+`
+	_, err := tx.tx.Exec(ctx, query, e.ID, e.AccountID, e.EmailAddress, e.Confirmed, e.Primary)
 
 	return err
 }
@@ -51,14 +53,14 @@ func (tx *emailTxImpl) GetEmailAddressByEmailAddress(ctx context.Context, emailA
 	var e entities.EmailAddress
 
 	query := `
-SELECT id, created_at, deleted_at, last_modified_at, confirmed, is_primary, email_address, account_id 
+SELECT id, created_at, last_modified_at, deleted_at, confirmed, is_primary, email_address, account_id 
  FROM email_address
  WHERE email_address=$1 
  AND deleted_at IS NULL
 `
 
 	row := tx.tx.QueryRow(ctx, query, emailAddress)
-	err := row.Scan(&e.ID, &e.CreatedAt, &e.DeletedAt, &e.LastModifiedAt, &e.Confirmed, &e.Primary, &e.EmailAddress, &e.AccountID)
+	err := row.Scan(&e.ID, &e.CreatedAt, &e.LastModifiedAt, &e.DeletedAt, &e.Confirmed, &e.Primary, &e.EmailAddress, &e.AccountID)
 
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -75,10 +77,10 @@ func (tx *emailTxImpl) GetEmailAddressByID(ctx context.Context, id string) (*acc
 
 	row := tx.tx.QueryRow(
 		ctx,
-		"SELECT id, created_at, deleted_at, last_modified_at, confirmed, is_primary, email_address, account_id "+
+		"SELECT id, created_at, last_modified_at, deleted_at, confirmed, is_primary, email_address, account_id "+
 			"FROM phone_number WHERE id=$1 "+
 			"AND deleted_at IS NULL", id)
-	err := row.Scan(&e.ID, &e.CreatedAt, &e.DeletedAt, &e.LastModifiedAt, &e.Confirmed, &e.Primary, &e.EmailAddress, &e.AccountID)
+	err := row.Scan(&e.ID, &e.CreatedAt, &e.LastModifiedAt, &e.DeletedAt, &e.Confirmed, &e.Primary, &e.EmailAddress, &e.AccountID)
 
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -98,15 +100,18 @@ func (tx *emailTxImpl) GetEmailAddresses(ctx context.Context, request pagination
 		sortString = buildOrderByClause(request)
 	}
 
-	rows, err := tx.tx.Query(
-		ctx,
-		fmt.Sprintf(
-			"SELECT id, created_at, deleted_at, last_modified_at, confirmed, email_address, account_id "+
-				"FROM email_address "+
-				"WHERE id > $1 "+
-				"AND deleted_at IS NULL "+
-				"ORDER BY %s "+
-				"FETCH FIRST %d ROWS ONLY", sortString, request.Count), request.Cursor)
+	queryTemplate := `
+SELECT id, created_at, last_modified_at, deleted_at, confirmed, email_address, account_id 
+ FROM email_address
+ WHERE id > $1
+ AND deleted_at IS NULL
+ ORDER BY %s
+ FETCH FIRST %d ROWS ONLY
+`
+
+	query := fmt.Sprintf(queryTemplate, sortString, request.Count)
+
+	rows, err := tx.tx.Query(ctx, query, request.Cursor)
 
 	if err != nil {
 		return nil, err
@@ -118,7 +123,7 @@ func (tx *emailTxImpl) GetEmailAddresses(ctx context.Context, request pagination
 
 	for rows.Next() {
 		var e entities.EmailAddress
-		if err := rows.Scan(&e.ID, &e.CreatedAt, &e.DeletedAt, &e.LastModifiedAt, &e.Confirmed, &e.EmailAddress, &e.AccountID); err != nil {
+		if err := rows.Scan(&e.ID, &e.CreatedAt, &e.LastModifiedAt, &e.DeletedAt, &e.Confirmed, &e.EmailAddress, &e.AccountID); err != nil {
 			return nil, err
 		}
 		emailAddresses = append(emailAddresses, e.ToProtobuf())
@@ -172,13 +177,16 @@ SELECT id, email_address, account_id
 
 func (tx *emailTxImpl) EmailIsConfirmed(ctx context.Context, emailAddress string) (bool, error) {
 	var count int
-	row := tx.tx.QueryRow(
-		ctx,
-		"SELECT COUNT(*) AS count "+
-			"FROM email_address "+
-			"WHERE email_address = $1 "+
-			"AND confirmed = $2 "+
-			"AND deleted_at IS NULL", emailAddress, true)
+
+	query := `
+SELECT COUNT(*) AS count 
+ FROM email_address 
+ WHERE email_address = $1
+ AND confirmed = $2
+ AND deleted_at IS NULL
+`
+
+	row := tx.tx.QueryRow(ctx, query, emailAddress, true)
 	err := row.Scan(&count)
 
 	if err != nil {
@@ -201,9 +209,15 @@ func (tx *emailTxImpl) EmailExists(ctx context.Context, emailAddress string) (bo
 
 func (tx *emailTxImpl) CountEmail(ctx context.Context, emailAddress string) (int, error) {
 	var count int
-	row := tx.tx.QueryRow(
-		ctx,
-		"SELECT COUNT(*) AS count FROM email_address WHERE email_address=$1 AND deleted_at IS NULL", emailAddress)
+
+	query := `
+SELECT COUNT(*) AS count 
+ FROM email_address 
+ WHERE email_address=$1 
+ AND deleted_at IS NULL
+`
+
+	row := tx.tx.QueryRow(ctx, query, emailAddress)
 	err := row.Scan(&count)
 	return count, err
 }
@@ -211,12 +225,14 @@ func (tx *emailTxImpl) CountEmail(ctx context.Context, emailAddress string) (int
 func (tx *emailTxImpl) GetConfirmedEmailAddress(ctx context.Context) (*accountV1.EmailAddress, error) {
 	var e entities.EmailAddress
 
-	row := tx.tx.QueryRow(
-		ctx,
-		"SELECT id, email_address, account_id "+
-			"FROM email_address WHERE email_address=$1 "+
-			"AND confirmed=$2 "+
-			"AND deleted_at IS NULL", e.EmailAddress, true)
+	query := `
+SELECT id, email_address, account_id 
+ FROM email_address WHERE email_address=$1 
+ AND confirmed=$2 
+ AND deleted_at IS NULL
+`
+
+	row := tx.tx.QueryRow(ctx, query, e.EmailAddress, true)
 
 	err := row.Scan(&e.ID, &e.EmailAddress, &e.AccountID)
 

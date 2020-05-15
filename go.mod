@@ -9,9 +9,7 @@ require (
 	github.com/AlpacaLabs/protorepo-account-go v0.0.0-20200514015349-1c5d3d601656
 	github.com/AlpacaLabs/protorepo-pagination-go v0.0.0-20200503181518-cbf4b2f30657
 	github.com/badoux/checkmail v0.0.0-20181210160741-9661bd69e9ad
-	github.com/denisenkom/go-mssqldb v0.0.0-20200428022330-06a60b6afbbc // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
-	github.com/golang-sql/sqlexp v0.0.0-20170517235910-f1bb20e5a188
 	github.com/gorilla/mux v1.7.4
 	github.com/guregu/null v4.0.0+incompatible
 	github.com/jackc/pgx/v4 v4.6.0
