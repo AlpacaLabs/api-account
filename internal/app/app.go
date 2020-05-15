@@ -27,7 +27,7 @@ func NewApp(c configuration.Config) App {
 func (a App) Run() {
 	dbConn, err := db.Connect(a.config.SQLConfig)
 	if err != nil {
-		log.Fatalf("failed to dial account service: %v", err)
+		log.Fatalf("failed to dial database: %v", err)
 	}
 	dbClient := db.NewClient(dbConn)
 	svc := service.NewService(a.config, dbClient)
