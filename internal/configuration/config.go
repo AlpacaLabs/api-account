@@ -28,7 +28,7 @@ type Config struct {
 	KafkaConfig configuration.KafkaConfig
 
 	// SQLConfig provides configuration for connecting to a SQL database.
-	SQLConfig   configuration.SQLConfig
+	SQLConfig configuration.SQLConfig
 
 	// GrpcPort controls what port our gRPC server runs on.
 	GrpcPort int
